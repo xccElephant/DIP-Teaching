@@ -18,39 +18,67 @@ Fill the [Missing Part](run_global_transform.py#L21) of 'run_global_transform.py
 Implement MLS or RBF based image deformation in the [Missing Part](run_point_transform.py#L52) of 'run_point_transform.py'.
 
 ---
-## 一个作业提交模板 (里面的结果也可参考)
-
 
 ## Implementation of Image Geometric Transformation
 
-This repository is Yudong Guo's implementation of Assignment_01 of DIP. 
+This repository is Chucheng Xiang's implementation of Assignment_01 of DIP. My student ID is SA24001058.
 
 <img src="pics/teaser.png" alt="alt text" width="800">
 
-## Requirements
 
-To install requirements:
+## Environment
 
-```setup
-python -m pip install -r requirements.txt
+- OS: Windows 11
+- Python: 3.10
+
+## Installation
+Following the cloning of the repository, it is essential to verify that Python 3.10 is installed on your system and that you are currently located in the root directory of this repository. Subsequently, you can proceed to install the necessary dependencies by executing the commands below:
+
+1. To create virtual environment and activate it:
+
+```cmd
+python -m venv dip_env
+dip_env\Scripts\activate
+```
+2. To install requirements:
+
+```cmd
+pip install -r requirements.txt
 ```
 
 
-## Running
+## Usage
 
-To run basic transformation, run:
+### Basic Transformation
+To use basic transformation, run:
 
-```basic
-python run_global_transform.py
+```cmd
+python Assignments\01_ImageWarping\run_global_transform.py
 ```
 
-To run point guided transformation, run:
+### point guided transformation
+To use point guided transformation, run:
 
-```point
-python run_point_transform.py
+```cmd
+python Assignments\01_ImageWarping\run_point_transform.py
 ```
 
-## Results (need add more result images)
+To use fast (using vectorization) point guided transformation, run:
+
+```cmd
+python Assignments\01_ImageWarping\run_point_transform_fast.py
+```
+
+Then, you can utilize the interface developed by Gradio, which is accessible at http://127.0.0.1:7860.
+
+To virtualize the shape of transformed points, run:
+
+```cmd
+
+
+
+
+## Results
 ### Basic Transformation
 <img src="pics/global_demo.gif" alt="alt text" width="800">
 
