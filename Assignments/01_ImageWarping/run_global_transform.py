@@ -54,17 +54,19 @@ def apply_transform(
 
     # 4. Flip
     if flip_horizontal:
-        transformed_image = cv2.flip(transformed_image, 1)
+        flip_matrix = np.float32([[-1, 0, image_width], [0, 1, 0]])
+        transformed_image = cv2.warpAffine(transformed_image, flip_matrix, (image_width, image_height))
     
     if flip_vertical:
-        transformed_image = cv2.flip(transformed_image, 0)
+        flip_matrix = np.float32([[1, 0, 0], [0, -1, image_height]])
+        transformed_image = cv2.warpAffine(transformed_image, flip_matrix, (image_width, image_height))
 
     return transformed_image
 
 
 # Gradio Interface
 def interactive_transform():
-    with gr.Blocks(gr.themes.Base()) as demo:
+    with gr.Blocks() as demo:
         gr.Markdown(
             "<h1 style='text-align: center'>Image Transformation Playground</h1>"
         )
@@ -92,8 +94,19 @@ def interactive_transform():
                     minimum=-300, maximum=300, step=10, value=0, label="Translation Y"
                 )
                 with gr.Row():
-                    flip_horizontal = gr.Checkbox(label="Flip Horizontal")
-                    flip_vertical = gr.Checkbox(label="Flip Vertical")
+                    flip_horizontal = gr.Checkbox(label="Flip Horizontally")
+                    flip_vertical = gr.Checkbox(label="Flip Vertically")
+
+                # Reset
+                reset_button = gr.Button("Reset")
+
+                def reset_defaults():
+                    return 1.0, 0, 0, 0, False, False
+
+                reset_button.click(
+                    reset_defaults,
+                    outputs=[scale, rotation, translation_x, translation_y, flip_horizontal, flip_vertical]
+                )
 
             # Right: Output image
             image_output = gr.Image(label="Transformed Image")
