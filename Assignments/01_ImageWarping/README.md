@@ -28,24 +28,31 @@ This repository is Chucheng Xiang's implementation of Assignment_01 of DIP. My s
 
 ## Environment
 
-- OS: Windows 11
+- OS: Windows, macOS, Linux
 - Python: 3.10
 
 ## Installation
-Following the cloning of the repository, it is essential to verify that Python 3.10 is installed on your system and that you are currently located in the root directory of this repository. Subsequently, you can proceed to install the necessary dependencies by executing the commands below:
+Following the cloning of the repository, it is essential to verify that Python 3.10 is installed on your system and that you are currently located in the <font color="red">root directory</font> of this repository. Subsequently, you can proceed to install the necessary dependencies by executing the commands below:
 
 1. To create virtual environment and activate it:
 
+On Windows:
 ```cmd
 python -m venv dip_env
 dip_env\Scripts\activate
 ```
+
+On macOS/Linux:
+```bash
+python3 -m venv dip_env
+source dip_env/bin/activate
+```
+
 2. To install requirements:
 
 ```cmd
 pip install -r requirements.txt
 ```
-
 
 ## Usage
 
@@ -57,6 +64,8 @@ python Assignments\01_ImageWarping\run_global_transform.py
 ```
 
 ### point guided transformation
+Image warping algorithm based on MLS (Moving Least Square) can be read in [mls_algorithm](mls_algorithm.md).
+
 To use point guided transformation, run:
 
 ```cmd
@@ -74,8 +83,8 @@ Then, you can utilize the interface developed by Gradio, which is accessible at 
 To virtualize the shape of transformed points, run:
 
 ```cmd
-
-
+python Assignments\01_ImageWarping\point_virtualization.py
+```
 
 
 ## Results
@@ -83,7 +92,14 @@ To virtualize the shape of transformed points, run:
 <img src="pics/global_demo.gif" alt="alt text" width="800">
 
 ### Point Guided Deformation:
-<img src="pics/point_demo.gif" alt="alt text" width="800">
+<img src="pics/point_demo1.gif" alt="alt text" width="800">
+<img src="pics/point_demo2.gif" alt="alt text" width="800">
+<img src="pics/point_demo3.gif" alt="alt text" width="800">
+<img src="pics/point_demo4.gif" alt="alt text" width="800">
+
+## Note
+
+To avoid the singularity problem of transformation matrix, it is important to choose at least 3 control points for the image warping algorithm based on MLS.
 
 ## Acknowledgement
 
