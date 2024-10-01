@@ -1,3 +1,4 @@
+import os
 import time
 
 import cv2
@@ -140,10 +141,14 @@ def point_guided_deformation(image, source_pts, target_pts, alpha=1.0, eps=1e-8)
     dx = x_src - x0
     dy = y_src - y0
 
-    # 获取源图像像素值
+   # 获取源图像像素值
     def get_pixel_values(x, y):
         indices = y * w + x
-        return image.reshape(-1, 3)[indices]
+        valid_indices = (indices >= 0) & (indices < image.size // 3)  # 检查索引是否有效
+        valid_indices = np.where(valid_indices)[0]  # 获取有效索引的位置
+        pixel_values = np.full((len(indices), 3), [255, 255, 255], dtype=np.float64)  # 默认白色
+        pixel_values[valid_indices] = image.reshape(-1, 3)[indices[valid_indices]]  # 仅获取有效索引的像素值
+        return pixel_values
 
     I00 = get_pixel_values(x0, y0)
     I10 = get_pixel_values(x1, y0)
@@ -166,7 +171,9 @@ def point_guided_deformation(image, source_pts, target_pts, alpha=1.0, eps=1e-8)
     # 将变换后的坐标输出到文件
     transformed_points = mapped_v.reshape((h, w, 2))
     np.savetxt(
-        "transformed_points.csv", transformed_points.reshape(-1, 2), delimiter=","
+        os.path.join(os.path.dirname(__file__), "transformed_points.csv"),
+        transformed_points.reshape(-1, 2),
+        delimiter=",",
     )
 
     return warped_image
@@ -177,9 +184,10 @@ def run_warping():
 
     start_time = time.time()  # 记录开始时间
     warped_image = point_guided_deformation(
-        image, np.array(points_src, dtype=np.float64), np.array(points_dst, dtype=np.float64)
+        image,
+        np.array(points_src, dtype=np.float64),
+        np.array(points_dst, dtype=np.float64),
     )
-    # warped_image = test(image)
     end_time = time.time()  # 记录结束时间
     elapsed_time = end_time - start_time  # 计算耗时
 

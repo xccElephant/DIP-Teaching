@@ -1,3 +1,4 @@
+import os
 import time
 
 import cv2
@@ -85,7 +86,7 @@ def point_guided_deformation(image, source_pts, target_pts, alpha=1.0, eps=1e-8)
 
             # 计算权重 w_i
             dist2 = np.sum((source_pts - v) ** 2, axis=1)  # 源点到当前像素的平方距离
-            w_i = 1.0 / (dist2 ** alpha + eps)  # 权重
+            w_i = 1.0 / (dist2**alpha + eps)  # 权重
 
             # 计算加权中心 p_star 和 q_star
             w_sum = np.sum(w_i)
@@ -110,7 +111,7 @@ def point_guided_deformation(image, source_pts, target_pts, alpha=1.0, eps=1e-8)
                 A_v = (v - p_star) @ mu_inv  # 计算中间变量 A_v
 
                 # 计算矩阵 B
-                B = np.einsum('i,ij,ik->jk', w_i, p_hat, q_hat)  # 形状为 (2, 2)
+                B = np.einsum("i,ij,ik->jk", w_i, p_hat, q_hat)  # 形状为 (2, 2)
 
                 # 计算映射后的位移
                 mapped_disp = A_v @ B
@@ -152,11 +153,12 @@ def point_guided_deformation(image, source_pts, target_pts, alpha=1.0, eps=1e-8)
 
     # 将变换后的坐标输出到文件
     np.savetxt(
-        "transformed_points.csv", np.array(transformed_points).reshape(-1, 2), delimiter=","
+        os.path.join(os.path.dirname(__file__), "transformed_points.csv"),
+        np.array(transformed_points).reshape(-1, 2),
+        delimiter=",",
     )
 
     return warped_image.astype(np.uint8)
-
 
 
 def run_warping():
@@ -164,9 +166,10 @@ def run_warping():
 
     start_time = time.time()  # 记录开始时间
     warped_image = point_guided_deformation(
-        image, np.array(points_src, dtype=np.float64), np.array(points_dst, dtype=np.float64)
+        image,
+        np.array(points_src, dtype=np.float64),
+        np.array(points_dst, dtype=np.float64),
     )
-    # warped_image = test(image)
     end_time = time.time()  # 记录结束时间
     elapsed_time = end_time - start_time  # 计算耗时
 
