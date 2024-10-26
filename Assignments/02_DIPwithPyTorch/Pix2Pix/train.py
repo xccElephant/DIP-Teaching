@@ -1,13 +1,15 @@
 import os
+
 import cv2
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-from facades_dataset import FacadesDataset
+from pix2pix_dataset import Pix2PixDataset
 from FCN_network import FullyConvNetwork
 from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import DataLoader
+
 
 def tensor_to_image(tensor):
     """
@@ -29,6 +31,7 @@ def tensor_to_image(tensor):
     image = (image * 255).astype(np.uint8)
     return image
 
+
 def save_images(inputs, targets, outputs, folder_name, epoch, num_images=5):
     """
     Save a set of input, target, and output images for visualization.
@@ -41,7 +44,7 @@ def save_images(inputs, targets, outputs, folder_name, epoch, num_images=5):
         epoch (int): Current epoch number.
         num_images (int): Number of images to save from the batch.
     """
-    os.makedirs(f'{folder_name}/epoch_{epoch}', exist_ok=True)
+    os.makedirs(f"{folder_name}/epoch_{epoch}", exist_ok=True)
     for i in range(num_images):
         # Convert tensors to images
         input_img_np = tensor_to_image(inputs[i])
@@ -52,9 +55,13 @@ def save_images(inputs, targets, outputs, folder_name, epoch, num_images=5):
         comparison = np.hstack((input_img_np, target_img_np, output_img_np))
 
         # Save the comparison image
-        cv2.imwrite(f'{folder_name}/epoch_{epoch}/result_{i + 1}.png', comparison)
+        cv2.imwrite(f"{folder_name}/epoch_{epoch}/result_{i + 1}.png", comparison)
 
-def train_one_epoch(model, dataloader, optimizer, criterion, device, epoch, num_epochs):
+
+def train_one_epoch(
+    model, dataloader, optimizer, criterion, device, epoch, num_epochs, scaler,
+    dataset_name,
+):
     """
     Train the model for one epoch.
 
@@ -66,39 +73,51 @@ def train_one_epoch(model, dataloader, optimizer, criterion, device, epoch, num_
         device (torch.device): Device to run the training on.
         epoch (int): Current epoch number.
         num_epochs (int): Total number of epochs.
+        scaler (GradScaler): GradScaler for mixed precision training.
     """
-    model.train()
-    running_loss = 0.0
+    model.train()  # Set the model to training mode
+    total_loss = 0.0
 
     for i, (image_rgb, image_semantic) in enumerate(dataloader):
         # Move data to the device
-        image_rgb = image_rgb.to(device)
-        image_semantic = image_semantic.to(device)
+        image_rgb = image_rgb.to(device, non_blocking=True)
+        image_semantic = image_semantic.to(device, non_blocking=True)
 
         # Zero the gradients
         optimizer.zero_grad()
 
         # Forward pass
-        outputs = model(image_rgb)
+        with torch.amp.autocast("cuda"):
+            outputs = model(image_rgb)
+            loss = criterion(outputs, image_semantic)
+            total_loss += loss.item()
+
+        # Backward pass and optimization
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        # Print loss information
+        print(
+            f"Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(dataloader)}], Loss: {loss.item():.4f}"
+        )
 
         # Save sample images every 5 epochs
         if epoch % 5 == 0 and i == 0:
-            save_images(image_rgb, image_semantic, outputs, 'train_results', epoch)
+            save_images(
+                image_rgb,
+                image_semantic,
+                outputs,
+                os.path.join("train_results", f"{dataset_name}"),
+                epoch,
+            )
 
-        # Compute the loss
-        loss = criterion(outputs, image_semantic)
+    # Calculate average training loss
+    avg_train_loss = total_loss / len(dataloader)
+    return avg_train_loss
 
-        # Backward pass and optimization
-        loss.backward()
-        optimizer.step()
 
-        # Update running loss
-        running_loss += loss.item()
-
-        # Print loss information
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(dataloader)}], Loss: {loss.item():.4f}')
-
-def validate(model, dataloader, criterion, device, epoch, num_epochs):
+def validate(model, dataloader, criterion, device, epoch, num_epochs, dataset_name):
     """
     Validate the model on the validation dataset.
 
@@ -110,7 +129,7 @@ def validate(model, dataloader, criterion, device, epoch, num_epochs):
         epoch (int): Current epoch number.
         num_epochs (int): Total number of epochs.
     """
-    model.eval()
+    model.eval()  # Set the model to evaluation mode
     val_loss = 0.0
 
     with torch.no_grad():
@@ -128,47 +147,93 @@ def validate(model, dataloader, criterion, device, epoch, num_epochs):
 
             # Save sample images every 5 epochs
             if epoch % 5 == 0 and i == 0:
-                save_images(image_rgb, image_semantic, outputs, 'val_results', epoch)
+                save_images(
+                    image_rgb,
+                    image_semantic,
+                    outputs,
+                    os.path.join("val_results", f"{dataset_name}"),
+                    epoch,
+                )
 
     # Calculate average validation loss
     avg_val_loss = val_loss / len(dataloader)
-    print(f'Epoch [{epoch + 1}/{num_epochs}], Validation Loss: {avg_val_loss:.4f}')
+    print(f"Epoch [{epoch + 1}/{num_epochs}], Validation Loss: {avg_val_loss:.4f}")
+
+    return avg_val_loss
+
 
 def main():
     """
     Main function to set up the training and validation processes.
     """
     # Set device to GPU if available
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Initialize datasets and dataloaders
-    train_dataset = FacadesDataset(list_file='train_list.txt')
-    val_dataset = FacadesDataset(list_file='val_list.txt')
+    train_dataset = Pix2PixDataset(list_file="train_list.txt")
+    val_dataset = Pix2PixDataset(list_file="val_list.txt")
 
-    train_loader = DataLoader(train_dataset, batch_size=100, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=100, shuffle=False, num_workers=4)
+    train_loader = DataLoader(
+        train_dataset, batch_size=256, shuffle=True, num_workers=8, pin_memory=True
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=256, shuffle=False, num_workers=8, pin_memory=True
+    )
+
+    scaler = torch.amp.GradScaler("cuda")
 
     # Initialize model, loss function, and optimizer
     model = FullyConvNetwork().to(device)
     criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
 
+    num_epochs = 200
+
     # Add a learning rate scheduler for decay
-    scheduler = StepLR(optimizer, step_size=200, gamma=0.2)
+    scheduler = StepLR(optimizer, step_size=num_epochs // 10, gamma=0.2)
+
+    dataset_name = "cityscapes"
+
+    loss_file = open(os.path.join("logs", f"loss_history_{dataset_name}.txt"), "w")
+    loss_file.write("Epoch\tTrain Loss\tValidation Loss\n")
 
     # Training loop
-    num_epochs = 800
     for epoch in range(num_epochs):
-        train_one_epoch(model, train_loader, optimizer, criterion, device, epoch, num_epochs)
-        validate(model, val_loader, criterion, device, epoch, num_epochs)
+        train_loss = train_one_epoch(
+            model,
+            train_loader,
+            optimizer,
+            criterion,
+            device,
+            epoch,
+            num_epochs,
+            scaler,
+            dataset_name,
+        )
+        val_loss = validate(
+            model, val_loader, criterion, device, epoch, num_epochs, dataset_name
+        )
+
+        loss_file.write(f"{epoch + 1}\t{train_loss:.4f}\t{val_loss:.4f}\n")
+        loss_file.flush()
 
         # Step the scheduler after each epoch
         scheduler.step()
 
         # Save model checkpoint every 20 epochs
         if (epoch + 1) % 20 == 0:
-            os.makedirs('checkpoints', exist_ok=True)
-            torch.save(model.state_dict(), f'checkpoints/pix2pix_model_epoch_{epoch + 1}.pth')
+            os.makedirs(os.path.join("checkpoints", f"{dataset_name}"), exist_ok=True)
+            torch.save(
+                model.state_dict(),
+                os.path.join(
+                    "checkpoints",
+                    f"{dataset_name}",
+                    f"pix2pix_model_epoch_{epoch + 1}.pth",
+                ),
+            )
 
-if __name__ == '__main__':
+    loss_file.close()
+
+
+if __name__ == "__main__":
     main()
