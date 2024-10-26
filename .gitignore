@@ -1,2 +1,11 @@
-# 忽略虚拟环境目录
-dip_env/
+# 忽略任何位置的datasets, logs, checkpoints, results文件夹
+datasets/
+logs/
+checkpoints/
+*_results/
+
+train_list.txt
+val_list.txt
+test.py
+
+*.pdf

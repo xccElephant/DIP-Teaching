@@ -38,14 +38,14 @@ Following the cloning of the repository, it is essential to verify that Python 3
 
 On Windows:
 ```cmd
-python -m venv dip_env
-dip_env\Scripts\activate
+conda create -n dip python=3.10
+conda activate dip
 ```
 
 On macOS/Linux:
 ```bash
-python3 -m venv dip_env
-source dip_env/bin/activate
+conda create -n dip python=3.10
+conda activate dip
 ```
 
 2. To install requirements:

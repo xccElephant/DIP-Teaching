@@ -24,7 +24,9 @@ $$
 
 所以, 
 $$
-l_v(v) = \sum_j A_j \hat{q_j} + q^*.$$
+l_v(v) = \sum_j A_j \hat{q_j} + q^*.
+$$
+
 其中, 
 $$
 A_j = (v-p^*)(\sum_i \hat{p_i}^T w_i \hat{p_i})^{-1}w_j\hat{p_j}^T.
