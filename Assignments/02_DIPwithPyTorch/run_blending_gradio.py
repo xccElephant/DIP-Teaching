@@ -303,16 +303,16 @@ def blending(
 
         step += 1
 
-    # Plot the loss curve
-    plt.figure(figsize=(10, 5))
-    plt.plot(losses)
-    plt.title("Loss Curve")
-    plt.xlabel("Iteration")
-    plt.ylabel("Loss")
-    plt.yscale("log")  # Use logarithmic scale to better show loss changes
-    plt.grid(True)
-    plt.savefig("loss_curve.png")
-    plt.close()
+    # # Plot the loss curve
+    # plt.figure(figsize=(10, 5))
+    # plt.plot(losses)
+    # plt.title("Loss Curve")
+    # plt.xlabel("Iteration")
+    # plt.ylabel("Loss")
+    # plt.yscale("log")  # Use logarithmic scale to better show loss changes
+    # plt.grid(True)
+    # plt.savefig("loss_curve.png")
+    # plt.close()
 
     # Convert result back to numpy array
     final_result = (

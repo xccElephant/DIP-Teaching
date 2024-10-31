@@ -1,8 +1,8 @@
-# 忽略任何位置的datasets, logs, checkpoints, results文件夹
+# 忽略任何位置的datasets, checkpoints, results文件夹
 datasets/
-logs/
 checkpoints/
-*_results/
+train_results/
+val_results/
 
 train_list.txt
 val_list.txt
