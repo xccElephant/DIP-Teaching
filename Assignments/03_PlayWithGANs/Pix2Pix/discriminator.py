@@ -23,6 +23,6 @@ class Discriminator(nn.Module):
         )
         
     def forward(self, img_A, img_B):
-        # img_A: 输入图像, img_B: 目标图像/生成图像
+        # img_A: 输入的语义分割图, img_B: 目标图像或者生成的图像
         combined_imgs = torch.cat([img_A, img_B], dim=1)
         return self.model(combined_imgs)

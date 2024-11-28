@@ -61,7 +61,7 @@ def save_images(inputs, targets, outputs, folder_name, epoch, num_images=5):
 
 def train_one_epoch(
     generator, discriminator, dataloader, g_optimizer, d_optimizer, 
-    criterion_GAN, criterion_pixelwise, device, epoch, num_epochs, scaler,
+    criterion_GAN, criterion_pixelwise, device, epoch, num_epochs,
     dataset_name, lambda_pixel=100
 ):
     """
@@ -78,7 +78,6 @@ def train_one_epoch(
         device (torch.device): Device to run the training on.
         epoch (int): Current epoch number.
         num_epochs (int): Total number of epochs.
-        scaler (GradScaler): GradScaler for mixed precision training.
         dataset_name (str): Name of the dataset.
         lambda_pixel (float): Weight for the pixelwise loss.
     """
@@ -92,48 +91,40 @@ def train_one_epoch(
         real = torch.ones((batch_size, 1, 15, 15), device=device)
         fake = torch.zeros((batch_size, 1, 15, 15), device=device)
         
-        # Move data to the device
-        image_rgb = image_rgb.to(device, non_blocking=True)
-        image_semantic = image_semantic.to(device, non_blocking=True)
+        # Move data to device
+        image_rgb = image_rgb.to(device)
+        image_semantic = image_semantic.to(device)
 
         # -----------------
         # train discriminator
         # -----------------
         d_optimizer.zero_grad()
-
-        # Forward pass
-        with torch.amp.autocast("cuda"):
-            # generate fake image
-            fake_semantic = generator(image_rgb)
-            
-            # discriminator's real image result
-            real_loss = criterion_GAN(discriminator(image_rgb, image_semantic), real)
-            # 生成图像的判别结果
-            fake_loss = criterion_GAN(discriminator(image_rgb, fake_semantic.detach()), fake)
-            
-            d_loss = (real_loss + fake_loss) / 2
-
-        # Backward pass and optimization
-        scaler.scale(d_loss).backward()
-        scaler.step(d_optimizer)
+        
+        # generate fake image
+        fake_rgb = generator(image_semantic)
+        # discriminator's real image result
+        real_loss = criterion_GAN(discriminator(image_semantic, image_rgb), real)
+        # discriminator's fake image result
+        fake_loss = criterion_GAN(discriminator(image_semantic, fake_rgb.detach()), fake)
+        
+        d_loss = (real_loss + fake_loss) / 2
+        d_loss.backward()
+        d_optimizer.step()
 
         # -----------------
         # train generator
         # -----------------
         g_optimizer.zero_grad()
-
-        with torch.amp.autocast("cuda"):
-            # GAN loss
-            g_loss_gan = criterion_GAN(discriminator(image_rgb, fake_semantic), real)
-            # Pixel-wise loss
-            g_loss_pixel = criterion_pixelwise(fake_semantic, image_semantic)
-            
-            # Total generator loss
-            g_loss = g_loss_gan + lambda_pixel * g_loss_pixel
-
-        scaler.scale(g_loss).backward()
-        scaler.step(g_optimizer)
-        scaler.update()
+        
+        # GAN loss
+        g_loss_gan = criterion_GAN(discriminator(image_semantic, fake_rgb), real)
+        # Pixel-wise loss
+        g_loss_pixel = criterion_pixelwise(fake_rgb, image_rgb)
+        
+        # Total generator loss
+        g_loss = g_loss_gan + lambda_pixel * g_loss_pixel
+        g_loss.backward()
+        g_optimizer.step()
 
         # Print loss information
         print(
@@ -147,9 +138,9 @@ def train_one_epoch(
         # Save sample images every 5 epochs
         if epoch % 5 == 0 and i == 0:
             save_images(
-                image_rgb,
                 image_semantic,
-                outputs,
+                image_rgb,
+                fake_rgb,
                 os.path.join("train_results", f"{dataset_name}"),
                 epoch,
             )
@@ -157,40 +148,37 @@ def train_one_epoch(
     return total_g_loss / len(dataloader), total_d_loss / len(dataloader)
 
 
-def validate(model, dataloader, criterion, device, epoch, num_epochs, dataset_name):
+def validate_one_epoch(generator, dataloader, criterion_pixelwise, device, epoch, num_epochs, dataset_name):
     """
     Validate the model on the validation dataset.
 
     Args:
-        model (nn.Module): The neural network model.
+        generator (nn.Module): The generator model.
         dataloader (DataLoader): DataLoader for the validation data.
-        criterion (Loss): Loss function.
+        criterion_pixelwise (Loss): Loss function for the pixelwise loss.
         device (torch.device): Device to run the validation on.
         epoch (int): Current epoch number.
         num_epochs (int): Total number of epochs.
+        dataset_name (str): Name of the dataset.
     """
-    model.eval()  # Set the model to evaluation mode
+    generator.eval()  # Set the model to evaluation mode
     val_loss = 0.0
 
     with torch.no_grad():
         for i, (image_rgb, image_semantic) in enumerate(dataloader):
-            # Move data to the device
-            image_rgb = image_rgb.to(device)
             image_semantic = image_semantic.to(device)
+            image_rgb = image_rgb.to(device)
 
-            # Forward pass
-            outputs = model(image_rgb)
-
-            # Compute the loss
-            loss = criterion(outputs, image_semantic)
+            fake_rgb = generator(image_semantic)
+            loss = criterion_pixelwise(fake_rgb, image_rgb)
             val_loss += loss.item()
 
             # Save sample images every 5 epochs
             if epoch % 5 == 0 and i == 0:
                 save_images(
-                    image_rgb,
                     image_semantic,
-                    outputs,
+                    image_rgb,
+                    fake_rgb,
                     os.path.join("val_results", f"{dataset_name}"),
                     epoch,
                 )
@@ -206,12 +194,17 @@ def main():
     """
     Main function to set up the training and validation processes.
     """
+    os.makedirs("logs", exist_ok=True)
+    os.makedirs("checkpoints", exist_ok=True)
+    os.makedirs("train_results", exist_ok=True)
+    os.makedirs("val_results", exist_ok=True)
+
     # Set device to GPU if available
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
     # Initialize datasets and dataloaders
-    train_dataset = Pix2PixDataset(list_file="train_list.txt")
-    val_dataset = Pix2PixDataset(list_file="val_list.txt")
+    train_dataset = Pix2PixDataset(list_file="datasets/train_list.txt")
+    val_dataset = Pix2PixDataset(list_file="datasets/val_list.txt")
 
     train_loader = DataLoader(
         train_dataset, batch_size=256, shuffle=True, num_workers=8, pin_memory=True
@@ -220,10 +213,8 @@ def main():
         val_dataset, batch_size=256, shuffle=False, num_workers=8, pin_memory=True
     )
 
-    scaler = torch.amp.GradScaler("cuda")
-
     # Initialize generator and discriminator
-    generator = FullyConvNetwork().to(device)
+    generator = Generator().to(device)
     discriminator = Discriminator().to(device)
 
     # Loss function
@@ -234,48 +225,60 @@ def main():
     g_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
     d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
-    num_epochs = 200
+    num_epochs = 400
 
     # Add a learning rate scheduler for decay
-    scheduler = StepLR(optimizer, step_size=num_epochs // 10, gamma=0.2)
+    g_scheduler = StepLR(g_optimizer, step_size=num_epochs // 10, gamma=0.2)
+    d_scheduler = StepLR(d_optimizer, step_size=num_epochs // 10, gamma=0.2)
 
     dataset_name = "cityscapes"
 
     loss_file = open(os.path.join("logs", f"loss_history_{dataset_name}.txt"), "w")
-    loss_file.write("Epoch\tTrain Loss\tValidation Loss\n")
+    loss_file.write("Epoch\tG Loss\tD Loss\tValidation Loss\n")
 
     # Training loop
     for epoch in range(num_epochs):
-        train_loss = train_one_epoch(
-            model,
+        g_loss, d_loss = train_one_epoch(
+            generator,
+            discriminator,
             train_loader,
-            optimizer,
-            criterion,
+            g_optimizer,
+            d_optimizer,
+            criterion_GAN,
+            criterion_pixelwise,
             device,
             epoch,
             num_epochs,
-            scaler,
             dataset_name,
         )
-        val_loss = validate(
-            model, val_loader, criterion, device, epoch, num_epochs, dataset_name
+        val_loss = validate_one_epoch(
+            generator, val_loader, criterion_pixelwise, device, epoch, num_epochs, dataset_name
         )
 
-        loss_file.write(f"{epoch + 1}\t{train_loss:.4f}\t{val_loss:.4f}\n")
+        loss_file.write(f"{epoch + 1}\t{g_loss:.4f}\t{d_loss:.4f}\t{val_loss:.4f}\n")
         loss_file.flush()
 
         # Step the scheduler after each epoch
-        scheduler.step()
+        g_scheduler.step()
+        d_scheduler.step()
 
         # Save model checkpoint every 20 epochs
         if (epoch + 1) % 20 == 0:
             os.makedirs(os.path.join("checkpoints", f"{dataset_name}"), exist_ok=True)
             torch.save(
-                model.state_dict(),
+                generator.state_dict(),
                 os.path.join(
                     "checkpoints",
                     f"{dataset_name}",
-                    f"pix2pix_model_epoch_{epoch + 1}.pth",
+                    f"generator_epoch_{epoch + 1}.pth",
+                ),
+            )
+            torch.save(
+                discriminator.state_dict(),
+                os.path.join(
+                    "checkpoints",
+                    f"{dataset_name}",
+                    f"discriminator_epoch_{epoch + 1}.pth",
                 ),
             )
 

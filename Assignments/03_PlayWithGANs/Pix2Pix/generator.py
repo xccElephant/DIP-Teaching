@@ -33,7 +33,6 @@ class Generator(nn.Module):
         )
         
         # Decoder (Deconvolutional Layers)
-        # Note: since last layer outputs RGB channels, it may need specific activation function
         self.decoder1 = nn.Sequential(
             nn.ConvTranspose2d(512, 512, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(512),
