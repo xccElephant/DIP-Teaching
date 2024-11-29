@@ -1,0 +1,6 @@
+[submodule "Assignments/03_PlayWithGANs/auto_DragGAN/DragGAN"]
+	path = Assignments/03_PlayWithGANs/auto_DragGAN/DragGAN
+	url = https://github.com/XingangPan/DragGAN.git
+[submodule "Assignments/03_PlayWithGANs/auto_DragGAN/face-alignment"]
+	path = Assignments/03_PlayWithGANs/auto_DragGAN/face-alignment
+	url = https://github.com/1adrianb/face-alignment.git
