@@ -62,7 +62,7 @@ def save_images(inputs, targets, outputs, folder_name, epoch, num_images=5):
 def train_one_epoch(
     generator, discriminator, dataloader, g_optimizer, d_optimizer, 
     criterion_GAN, criterion_pixelwise, device, epoch, num_epochs,
-    dataset_name, lambda_pixel=100
+    dataset_name, lambda_pixel=200
 ):
     """
     Train the model for one epoch.
@@ -80,6 +80,10 @@ def train_one_epoch(
         num_epochs (int): Total number of epochs.
         dataset_name (str): Name of the dataset.
         lambda_pixel (float): Weight for the pixelwise loss.
+
+    Returns:
+        float: Average generator loss for the epoch.
+        float: Average discriminator loss for the epoch.
     """
     generator.train()
     discriminator.train()
@@ -129,7 +133,7 @@ def train_one_epoch(
         # Print loss information
         print(
             f"Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(dataloader)}], "
-            f"D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}"
+            f"G Loss: {g_loss.item():.4f}, D Loss: {d_loss.item():.4f}"
         )
 
         total_g_loss += g_loss.item()
@@ -207,7 +211,7 @@ def main():
     val_dataset = Pix2PixDataset(list_file="datasets/val_list.txt")
 
     train_loader = DataLoader(
-        train_dataset, batch_size=256, shuffle=True, num_workers=8, pin_memory=True
+        train_dataset, batch_size=64, shuffle=True, num_workers=8, pin_memory=True
     )
     val_loader = DataLoader(
         val_dataset, batch_size=256, shuffle=False, num_workers=8, pin_memory=True
@@ -222,8 +226,8 @@ def main():
     criterion_pixelwise = nn.L1Loss()
 
     # Optimizer
-    g_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-    d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    g_optimizer = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
+    d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0001, betas=(0.5, 0.999))
 
     num_epochs = 400
 
@@ -250,6 +254,7 @@ def main():
             epoch,
             num_epochs,
             dataset_name,
+            200
         )
         val_loss = validate_one_epoch(
             generator, val_loader, criterion_pixelwise, device, epoch, num_epochs, dataset_name
