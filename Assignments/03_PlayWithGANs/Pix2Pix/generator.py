@@ -60,7 +60,7 @@ class Generator(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.decoder5 = nn.Sequential(
-            nn.ConvTranspose2d(64, 3, kernel_size=4, stride=2, padding=1),  # (64, 256, 256) -> (3, 512, 512)
+            nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1),  # (64, 256, 256) -> (3, 256, 256)
             nn.Tanh()
         )
 
@@ -84,7 +84,7 @@ class Generator(nn.Module):
         x = self.decoder3(x)  # (128, 128, 128)
         x = torch.cat([x, x1], dim=1)  # skip connection, (192, 128, 128)
         x = self.decoder4(x)  # (64, 256, 256)
-        x = self.decoder5(x)  # (3, 512, 512)
+        x = self.decoder5(x)  # (3, 256, 256)
         
         return x
 

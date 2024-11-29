@@ -204,14 +204,14 @@ def main():
     os.makedirs("val_results", exist_ok=True)
 
     # Set device to GPU if available
-    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:4" if torch.cuda.is_available() else "cpu")
 
     # Initialize datasets and dataloaders
     train_dataset = Pix2PixDataset(list_file="datasets/train_list.txt")
     val_dataset = Pix2PixDataset(list_file="datasets/val_list.txt")
 
     train_loader = DataLoader(
-        train_dataset, batch_size=64, shuffle=True, num_workers=8, pin_memory=True
+        train_dataset, batch_size=128, shuffle=True, num_workers=8, pin_memory=True
     )
     val_loader = DataLoader(
         val_dataset, batch_size=256, shuffle=False, num_workers=8, pin_memory=True
@@ -227,7 +227,7 @@ def main():
 
     # Optimizer
     g_optimizer = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
-    d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0001, betas=(0.5, 0.999))
+    d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0004, betas=(0.5, 0.999))
 
     num_epochs = 400
 
@@ -254,7 +254,7 @@ def main():
             epoch,
             num_epochs,
             dataset_name,
-            200
+            20
         )
         val_loss = validate_one_epoch(
             generator, val_loader, criterion_pixelwise, device, epoch, num_epochs, dataset_name
