@@ -17,7 +17,7 @@ def qvec2rotmat(qvec):
          1 - 2 * qvec[1]**2 - 2 * qvec[2]**2]])
 
 def read_points3D_text(path):
-    """Read points3D.txt file"""
+    """Read points3D.txt file (3D point cloud)"""
     points3D = {}
     with open(path, 'r') as f:
         for line in f:
@@ -36,7 +36,7 @@ def read_points3D_text(path):
     return points3D
 
 def read_images_text(path):
-    """Read images.txt file"""
+    """Read images.txt file (camera poses)"""
     images = {}
     with open(path, 'r') as f:
         lines = f.readlines()
@@ -63,7 +63,7 @@ def read_images_text(path):
     return images
 
 def read_cameras_text(path):
-    """Read cameras.txt file"""
+    """Read cameras.txt file (camera parameters)"""
     cameras = {}
     with open(path, 'r') as f:
         for line in f:
@@ -172,7 +172,7 @@ def main():
         # Save result
         output_path = os.path.join(output_dir, image_name)
         com_img = np.concatenate((img_ori, img), axis=1)
-        com_img = cv2.resize(com_img, (0,0), fx=0.125, fy=0.125)
+        com_img = cv2.resize(com_img, (0,0), fx=0.125, fy=0.125)  # downsampling
         cv2.imwrite(output_path, com_img)
         print(f"Processed {image_name}")
     

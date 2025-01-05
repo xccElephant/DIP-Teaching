@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorch3d.ops.knn import knn_points
+# from pytorch3d.ops.knn import knn_points
 from typing import Dict, Tuple
 from dataclasses import dataclass
 
@@ -48,12 +48,30 @@ class GaussianModel(nn.Module):
         initial_rotations[:, 0] = 1.0  # w=1, x=y=z=0 for identity
         self.rotations = nn.Parameter(initial_rotations)
 
+    def compute_knn(points: torch.Tensor, k: int) -> torch.Tensor:
+        """
+        Compute K nearest neighbors' squared distances
+        Args:
+            points: (B, N, 3) 3D points in batch
+            k: number of nearest neighbors
+        Returns:
+            dists: (B, N, K) K nearest neighbors' squared distances
+        """
+        inner = -2 * torch.matmul(points, points.transpose(-2, -1))  # (B, N, N)
+        xx = torch.sum(points ** 2, dim=-1, keepdim=True)  # (B, N, 1)
+        pairwise_distance = xx + inner + xx.transpose(-2, -1)  # (B, N, N)
+    
+        # get top k nearest neighbors
+        dists, _ = torch.topk(pairwise_distance, k=k+1, dim=-1, largest=False)
+        return dists[..., 1:]  # remove self distance
+
     def _init_scales(self, points3D_xyz: torch.Tensor) -> None:
         """Initialize scales based on local point density"""
         # Compute mean distance to K nearest neighbors
         K = min(50, self.n_points - 1)
         points = points3D_xyz.unsqueeze(0)  # Add batch dimension
-        dists, _, _ = knn_points(points, points, K=K)
+        # dists, _, _ = knn_points(points, points, K=K)
+        dists = self.compute_knn(points, K)
         
         # Use log space for unconstrained optimization
         mean_dists = torch.mean(torch.sqrt(dists[0]), dim=1, keepdim=True) * 2.
