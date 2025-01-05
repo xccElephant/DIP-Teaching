@@ -1,11 +1,12 @@
 # 忽略任何位置的datasets, checkpoints, results文件夹
 datasets/
 checkpoints/
-train_results/
-val_results/
+*_results/
+__pycache__/
+logs/
 
-train_list.txt
-val_list.txt
+*train_list.txt
+*val_list.txt
 test.py
 
 *.pdf

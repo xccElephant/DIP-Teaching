@@ -10,7 +10,6 @@ from FCN_network import FullyConvNetwork
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 
-
 def tensor_to_image(tensor):
     """
     Convert a PyTorch tensor to a NumPy array suitable for OpenCV.
@@ -169,70 +168,72 @@ def main():
     # Set device to GPU if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # Initialize datasets and dataloaders
-    train_dataset = Pix2PixDataset(list_file="train_list.txt")
-    val_dataset = Pix2PixDataset(list_file="val_list.txt")
+    dataset_names = ["maps"]
 
-    train_loader = DataLoader(
-        train_dataset, batch_size=256, shuffle=True, num_workers=8, pin_memory=True
-    )
-    val_loader = DataLoader(
-        val_dataset, batch_size=256, shuffle=False, num_workers=8, pin_memory=True
-    )
+    for dataset_name in dataset_names:
+        # Initialize datasets and dataloaders
+        train_dataset = Pix2PixDataset(list_file=f"{dataset_name}_train_list.txt")
+        val_dataset = Pix2PixDataset(list_file=f"{dataset_name}_val_list.txt")
 
-    scaler = torch.amp.GradScaler("cuda")
-
-    # Initialize model, loss function, and optimizer
-    model = FullyConvNetwork().to(device)
-    criterion = nn.L1Loss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
-
-    num_epochs = 200
-
-    # Add a learning rate scheduler for decay
-    scheduler = StepLR(optimizer, step_size=num_epochs // 10, gamma=0.2)
-
-    dataset_name = "cityscapes"
-
-    loss_file = open(os.path.join("logs", f"loss_history_{dataset_name}.txt"), "w")
-    loss_file.write("Epoch\tTrain Loss\tValidation Loss\n")
-
-    # Training loop
-    for epoch in range(num_epochs):
-        train_loss = train_one_epoch(
-            model,
-            train_loader,
-            optimizer,
-            criterion,
-            device,
-            epoch,
-            num_epochs,
-            scaler,
-            dataset_name,
+        train_loader = DataLoader(
+            train_dataset, batch_size=256, shuffle=True, num_workers=8, pin_memory=True
         )
-        val_loss = validate(
-            model, val_loader, criterion, device, epoch, num_epochs, dataset_name
+        val_loader = DataLoader(
+            val_dataset, batch_size=256, shuffle=False, num_workers=8, pin_memory=True
         )
 
-        loss_file.write(f"{epoch + 1}\t{train_loss:.4f}\t{val_loss:.4f}\n")
-        loss_file.flush()
+        scaler = torch.cuda.amp.GradScaler()
 
-        # Step the scheduler after each epoch
-        scheduler.step()
+        # Initialize model, loss function, and optimizer
+        model = FullyConvNetwork().to(device)
+        criterion = nn.L1Loss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
 
-        # Save model checkpoint every 20 epochs
-        if (epoch + 1) % 20 == 0:
-            os.makedirs(os.path.join("checkpoints", f"{dataset_name}"), exist_ok=True)
-            torch.save(
-                model.state_dict(),
-                os.path.join(
-                    "checkpoints",
-                    f"{dataset_name}",
-                    f"pix2pix_model_epoch_{epoch + 1}.pth",
-                ),
+        num_epochs = 400
+
+        # Add a learning rate scheduler for decay
+        scheduler = StepLR(optimizer, step_size=num_epochs // 10, gamma=0.2)
+
+        os.makedirs("logs", exist_ok=True)
+        loss_file = open(os.path.join("logs", f"loss_history_{dataset_name}.txt"), "w")
+        loss_file.write("Epoch\tTrain Loss\tValidation Loss\n")
+
+        # Training loop
+        for epoch in range(num_epochs):
+            train_loss = train_one_epoch(
+                model,
+                train_loader,
+                optimizer,
+                criterion,
+                device,
+                epoch,
+                num_epochs,
+                scaler,
+                dataset_name,
+            )
+            val_loss = validate(
+                model, val_loader, criterion, device, epoch, num_epochs, dataset_name
             )
 
-    loss_file.close()
+            loss_file.write(f"{epoch + 1}\t{train_loss:.4f}\t{val_loss:.4f}\n")
+            loss_file.flush()
+
+            # Step the scheduler after each epoch
+            scheduler.step()
+
+            # Save model checkpoint every 20 epochs
+            if (epoch + 1) % 20 == 0:
+                os.makedirs(os.path.join("checkpoints", f"{dataset_name}"), exist_ok=True)
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(
+                        "checkpoints",
+                        f"{dataset_name}",
+                        f"pix2pix_model_epoch_{epoch + 1}.pth",
+                    ),
+                )
+
+        loss_file.close()
 
 
 if __name__ == "__main__":
