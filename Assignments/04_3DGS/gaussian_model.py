@@ -48,7 +48,7 @@ class GaussianModel(nn.Module):
         initial_rotations[:, 0] = 1.0  # w=1, x=y=z=0 for identity
         self.rotations = nn.Parameter(initial_rotations)
 
-    def compute_knn(points: torch.Tensor, k: int) -> torch.Tensor:
+    def compute_knn(self, points: torch.Tensor, k: int) -> torch.Tensor:
         """
         Compute K nearest neighbors' squared distances
         Args:
@@ -127,9 +127,8 @@ class GaussianModel(nn.Module):
         scales = torch.exp(self.scales)
         S = torch.diag_embed(scales)
         
-        # Compute covariance
-        ### FILL:
-        ### Covs3d = ...
+        # Compute covariance: Σ = R·S·S·R^T
+        Covs3d = R @ S @ S @ R.transpose(1, 2)
         
         return Covs3d
 

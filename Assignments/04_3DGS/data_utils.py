@@ -3,7 +3,7 @@ import cv2
 import os
 import torch
 from torch.utils.data import Dataset
-from pytorch3d.ops import sample_farthest_points
+# from pytorch3d.ops import sample_farthest_points
 from natsort import natsorted
 
 def qvec2rotmat(qvec):

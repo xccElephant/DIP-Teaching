@@ -46,12 +46,19 @@ class GaussianRenderer(nn.Module):
         # 4. Transform covariance to camera space and then to 2D
         # Compute Jacobian of perspective projection
         J_proj = torch.zeros((N, 2, 3), device=means3D.device)
-        ### FILL:
-        ### J_proj = ...
+        # J_proj = [fx/z   0    -fx*x/z^2]
+        #          [0      fy/z -fy*y/z^2]
+        fx, fy = K[0, 0], K[1, 1]
+        z = screen_points[:, 2:3]  # (N, 1)
+        J_proj[:, 0, 0] = fx / z.squeeze()
+        J_proj[:, 1, 1] = fy / z.squeeze()
+        J_proj[:, 0, 2] = -fx * screen_points[:, 0] / (z.squeeze() * z.squeeze())
+        J_proj[:, 1, 2] = -fy * screen_points[:, 1] / (z.squeeze() * z.squeeze())
         
         # Transform covariance to camera space
-        ### FILL: Aplly world to camera rotation to the 3d covariance matrix
-        ### covs_cam = ...  # (N, 3, 3)
+        # Apply world to camera rotation to the 3d covariance matrix
+        covs_cam = torch.bmm(torch.bmm(R.unsqueeze(0).expand(N, -1, -1), covs3d), 
+                            R.unsqueeze(0).expand(N, -1, -1).transpose(1, 2))
         
         # Project to 2D
         covs2D = torch.bmm(J_proj, torch.bmm(covs_cam, J_proj.permute(0, 2, 1)))  # (N, 2, 2)
@@ -73,11 +80,24 @@ class GaussianRenderer(nn.Module):
         # Add small epsilon to diagonal for numerical stability
         eps = 1e-4
         covs2D = covs2D + eps * torch.eye(2, device=covs2D.device).unsqueeze(0)
-        
+
         # Compute determinant for normalization
-        ### FILL: compute the gaussian values
-        ### gaussian = ... ## (N, H, W)
-    
+        dets = torch.det(covs2D)  # (N,)
+        inv_covs = torch.inverse(covs2D)  # (N, 2, 2)
+        
+        # compute exponent part: -0.5 * (x-μ)^T * Σ^(-1) * (x-μ)
+        # dx: (N, H, W, 2), inv_covs: (N, 2, 2)
+        exp_term = -0.5 * torch.sum(
+            dx.unsqueeze(-2) @ inv_covs.unsqueeze(1).unsqueeze(1) @ dx.unsqueeze(-1),
+            dim=(-2, -1)
+        ).squeeze(-1)  # (N, H, W)
+        
+        # compute normalization coefficient: 1/(2π*sqrt(|Σ|))
+        norm_factor = 1.0 / (2.0 * np.pi * torch.sqrt(dets))  # (N,)
+        
+        # compute the gaussian values
+        gaussian = norm_factor.view(N, 1, 1) * torch.exp(exp_term)  # (N, H, W)
+        
         return gaussian
 
     def forward(
@@ -118,8 +138,14 @@ class GaussianRenderer(nn.Module):
         colors = colors.permute(0, 2, 3, 1)  # (N, H, W, 3)
         
         # 7. Compute weights
-        ### FILL:
-        ### weights = ... # (N, H, W)
+        # Compute transmittance using cumulative product of (1 - alpha)
+        # We need exclusive cumulative product (don't include current point)
+        transmittance = torch.cumprod(1 - alphas.flip(0), dim=0).flip(0)  # (N, H, W)
+        # Pad with ones at the beginning
+        transmittance = torch.cat([torch.ones_like(transmittance[:1]), transmittance[:-1]], dim=0)
+        
+        # Final weights are alpha * transmittance
+        weights = alphas * transmittance  # (N, H, W)
         
         # 8. Final rendering
         rendered = (weights.unsqueeze(-1) * colors).sum(dim=0)  # (H, W, 3)

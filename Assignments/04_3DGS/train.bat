@@ -1,0 +1,1 @@
+python train.py --colmap_dir data/chair --checkpoint_dir data/chair/checkpoints
