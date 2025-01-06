@@ -42,11 +42,6 @@ class GaussianRenderer(nn.Module):
         
         # 1. Transform points to camera space
         cam_points = means3D @ R.T + t.unsqueeze(0)  # (N, 3)
-        print("Camera points:", 
-              "shape:", cam_points.shape,
-              "min:", cam_points.min().item(),
-              "max:", cam_points.max().item(),
-              "has_nan:", torch.isnan(cam_points).any().item())
         
         # 2. Get depths before projection for proper sorting and clipping
         depths = cam_points[:, 2].clamp(min=1.)  # (N, )
@@ -64,19 +59,24 @@ class GaussianRenderer(nn.Module):
         # 4. Transform covariance to camera space and then to 2D
         # Compute Jacobian of perspective projection
         J_proj = torch.zeros((N, 2, 3), device=means3D.device)
-        # J_proj = [fx/z   0    -fx*x/z^2]
-        #          [0      fy/z -fy*y/z^2]
+        # J_proj = [fx/Z   0    -fx*X/Z^2]
+        #          [0      fy/Z -fy*Y/Z^2]
         fx, fy = K[0, 0], K[1, 1]
-        z = screen_points[:, 2:3]  # (N, 1)
-        J_proj[:, 0, 0] = fx / z.squeeze()
-        J_proj[:, 1, 1] = fy / z.squeeze()
-        J_proj[:, 0, 2] = -fx * screen_points[:, 0] / (z.squeeze() * z.squeeze())
-        J_proj[:, 1, 2] = -fy * screen_points[:, 1] / (z.squeeze() * z.squeeze())
+        X = cam_points[:, 0]
+        Y = cam_points[:, 1]
+        Z = cam_points[:, 2]
+        
+        J_proj[:, 0, 0] = fx / Z
+        J_proj[:, 1, 1] = fy / Z
+        J_proj[:, 0, 2] = -fx * X / (Z * Z)
+        J_proj[:, 1, 2] = -fy * Y / (Z * Z)
         
         # Transform covariance to camera space
         # Apply world to camera rotation to the 3d covariance matrix
-        covs_cam = torch.bmm(torch.bmm(R.unsqueeze(0).expand(N, -1, -1), covs3d), 
-                            R.unsqueeze(0).expand(N, -1, -1).transpose(1, 2))
+        # covs_cam = torch.bmm(torch.bmm(R.unsqueeze(0).expand(N, -1, -1), covs3d), 
+        #                     R.unsqueeze(0).expand(N, -1, -1).transpose(1, 2))
+        
+        covs_cam = R @ covs3d @ R.T  # (N, 3, 3)
         
         # Project to 2D
         covs2D = torch.bmm(J_proj, torch.bmm(covs_cam, J_proj.permute(0, 2, 1)))  # (N, 2, 2)
@@ -124,23 +124,21 @@ class GaussianRenderer(nn.Module):
         
         inv_covs = torch.inverse(covs2D)
         
-        # compute exponent part： -0.5 * (x-μ)^T * Σ^(-1) * (x-μ)
-        exp_term = -0.5 * torch.sum(
-            dx.unsqueeze(-2) @ inv_covs.unsqueeze(1).unsqueeze(1) @ dx.unsqueeze(-1),
-            dim=(-2, -1)
-        ).squeeze(-1)  # (N, H, W)
-        
-        # 检查指数项
-        print("Exponent term:", 
-              "min:", exp_term.min().item(),
-              "max:", exp_term.max().item(),
-              "has_nan:", torch.isnan(exp_term).any().item())
-        
-        # compute normalization coefficient: 1/(2π*sqrt(|Σ|))
-        norm_factor = 1.0 / (2.0 * np.pi * torch.sqrt(dets))  # (N,)
+        # Compute exponent part： -0.5 * (x-μ)^T * Σ^(-1) * (x-μ)
+        dx = dx.unsqueeze(-1)  # (N, H, W, 2, 1)
+        exponent = -0.5 * torch.matmul(
+            dx.transpose(-1, -2), torch.matmul(inv_covs.unsqueeze(1).unsqueeze(1), dx)
+        ).squeeze(-1).squeeze(
+            -1
+        )  # (N, H, W)
 
-        # compute the gaussian values
-        gaussian = norm_factor.view(N, 1, 1) * torch.exp(exp_term)  # (N, H, W)
+        # Compute Gaussian values
+        normalization = 1.0 / (2 * torch.pi * torch.sqrt(dets)).unsqueeze(
+            -1
+        ).unsqueeze(
+            -1
+        )  # (N, 1, 1)
+        gaussian = normalization * torch.exp(exponent)  # (N, H, W)
         
         return gaussian
 
@@ -184,12 +182,15 @@ class GaussianRenderer(nn.Module):
         # 7. Compute weights
         # Compute transmittance using cumulative product of (1 - alpha)
         # We need exclusive cumulative product (don't include current point)
-        transmittance = torch.cumprod(1 - alphas.flip(0), dim=0).flip(0)  # (N, H, W)
-        # Pad with ones at the beginning
-        transmittance = torch.cat([torch.ones_like(transmittance[:1]), transmittance[:-1]], dim=0)
         
+        alphas_cumprod = torch.cumprod(1 - alphas, dim=0)  # (N, H, W)
+        alphas_cumprod = torch.cat(
+            [torch.ones(1, self.H, self.W, device=alphas.device), alphas_cumprod[:-1]],
+            dim=0,
+        )  # Shifted cumulative product
+
         # Final weights are alpha * transmittance
-        weights = alphas * transmittance  # (N, H, W)
+        weights = alphas * alphas_cumprod  # (N, H, W)
         
         # 8. Final rendering
         rendered = (weights.unsqueeze(-1) * colors).sum(dim=0)  # (H, W, 3)
