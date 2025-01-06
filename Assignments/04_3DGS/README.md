@@ -124,29 +124,70 @@ sudo apt install colmap
 ```
 
 ### Usage
+First, use Colmap to recover camera poses and a set of 3D points.
 
-After downloading the datasets, you can run the following command to train the model:
+```bash
+python mvs_with_colmap.py --data_dir data/chair
+```
+
+Then, you can run the following command to train the model:
 
 ```bash
 cd Assignments/04_3DGS
 python train.py --colmap_dir data/chair --checkpoint_dir data/chair/checkpoints
 ```
 
-Then you can see the training process in the terminal, while the checkpoints, logs and generated images will be saved in the `checkpoints`, `logs` and `train(val)_results` folders.
-
 ### Results
 
-Here are some generated images:
+Here are some rendered images in different views:
 
-![Generated Image 1](./display/pix2pix_1.png)
-![Generated Image 2](./display/pix2pix_2.png)
-![Generated Image 3](./display/pix2pix_3.png)
-![Generated Image 4](./display/pix2pix_4.png)
+<table>
+<tr>
+<td><img src="./assets/p_1.png"/></td>
+<td><img src="./assets/p_2.png"/></td>
+<td><img src="./assets/p_3.png"/></td>
+</tr>
+</table>
 
 
 ### Compare with the original 3DGS Implementation
 
-For convenience, I follow author's instructions to use a [colab notebook](https://colab.research.google.com/github/camenduru/gaussian-splatting-colab/blob/main/gaussian_splatting_colab.ipynb) provided by a user [camenduru](https://github.com/camenduru) to run the original 3DGS implementation on the 'chair' dataset. The results are shown below:
+For convenience, I follow author's instructions to use a [colab notebook](https://colab.research.google.com/github/camenduru/gaussian-splatting-colab/blob/main/gaussian_splatting_colab.ipynb) provided by a user [camenduru](https://github.com/camenduru) to run the original 3DGS implementation on the 'chair' dataset with the results shown below.
 
-![Original 3DGS Implementation](./display/original_3dgs.png)
+Ground truth images (800x800):
+
+<table>
+<tr>
+<td><img src="./assets/gt_0.png"/></td>
+<td><img src="./assets/gt_1.png"/></td>
+<td><img src="./assets/gt_2.png"/></td>
+</tr>
+</table>
+
+Rendered images (800x800):
+
+<table>
+<tr>
+<td><img src="./assets/render_0.png"/></td>
+<td><img src="./assets/render_1.png"/></td>
+<td><img src="./assets/render_2.png"/></td>
+</tr>
+</table>
+
+The rendered images are so good that I can't see the difference between the ground truth and the rendered images.
+
+
+Generated 3D point cloud in ply format:
+
+![Generated 3D Point Cloud](./assets/point_cloud.png)
+
+#### Quantitative Comparison
+
+PNSR:
+
+SSIM:
+
+LPIPS:
+
+
 
