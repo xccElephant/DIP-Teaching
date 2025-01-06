@@ -172,8 +172,23 @@ class GaussianTrainer:
         if not in_train:
             return rendered_images
 
-        # Compute RGB loss
-        loss = torch.abs(rendered_images - images).mean()
+        # 检查渲染图像是否包含 NaN
+        if torch.isnan(rendered_images).any():
+            print("Warning: NaN values in rendered images")
+        
+        # 计算损失前确保输入有效
+        valid_mask = torch.isfinite(rendered_images) & torch.isfinite(images)
+        if not valid_mask.any():
+            print("Warning: No valid pixels for loss computation")
+            return float('nan'), rendered_images
+        
+        # 只在有效像素上计算损失
+        loss = torch.abs(rendered_images[valid_mask] - images[valid_mask]).mean()
+        
+        # 检查损失值
+        if torch.isnan(loss):
+            print("Warning: NaN loss encountered")
+            return float('nan'), rendered_images
         
         # Backward pass
         self.optimizer.zero_grad()

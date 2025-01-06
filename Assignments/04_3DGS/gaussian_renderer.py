@@ -33,15 +33,33 @@ class GaussianRenderer(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         N = means3D.shape[0]
         
+        # 添加调试信息
+        print("3D means:", 
+              "shape:", means3D.shape,
+              "min:", means3D.min().item(),
+              "max:", means3D.max().item(),
+              "has_nan:", torch.isnan(means3D).any().item())
+        
         # 1. Transform points to camera space
-        cam_points = means3D @ R.T + t.unsqueeze(0) # (N, 3)
+        cam_points = means3D @ R.T + t.unsqueeze(0)  # (N, 3)
+        print("Camera points:", 
+              "shape:", cam_points.shape,
+              "min:", cam_points.min().item(),
+              "max:", cam_points.max().item(),
+              "has_nan:", torch.isnan(cam_points).any().item())
         
         # 2. Get depths before projection for proper sorting and clipping
         depths = cam_points[:, 2].clamp(min=1.)  # (N, )
         
         # 3. Project to screen space using camera intrinsics
-        screen_points = cam_points @ K.T  # (N, 3)
-        means2D = screen_points[..., :2] / screen_points[..., 2:3] # (N, 2)
+        screen_points = cam_points @ K.T
+        means2D = screen_points[..., :2] / screen_points[..., 2:3]
+        
+        print("2D means:", 
+              "shape:", means2D.shape,
+              "min:", means2D.min().item(),
+              "max:", means2D.max().item(),
+              "has_nan:", torch.isnan(means2D).any().item())
         
         # 4. Transform covariance to camera space and then to 2D
         # Compute Jacobian of perspective projection
@@ -74,27 +92,53 @@ class GaussianRenderer(nn.Module):
         N = means2D.shape[0]
         H, W = pixels.shape[:2]
         
-        # Compute offset from mean (N, H, W, 2)
+        # 添加调试信息
+        print("2D means input:", 
+              "shape:", means2D.shape,
+              "min:", means2D.min().item(),
+              "max:", means2D.max().item(),
+              "has_nan:", torch.isnan(means2D).any().item())
+        
+        # Compute offset from mean （）
         dx = pixels.unsqueeze(0) - means2D.reshape(N, 1, 1, 2)
         
         # Add small epsilon to diagonal for numerical stability
         eps = 1e-4
         covs2D = covs2D + eps * torch.eye(2, device=covs2D.device).unsqueeze(0)
+        
+        # 检查协方差矩阵的条件
+        print("2D covariance:", 
+              "shape:", covs2D.shape,
+              "min:", covs2D.min().item(),
+              "max:", covs2D.max().item(),
+              "has_nan:", torch.isnan(covs2D).any().item(),
+              "determinant min:", torch.det(covs2D).min().item())
 
         # Compute determinant for normalization
         dets = torch.det(covs2D)  # (N,)
-        inv_covs = torch.inverse(covs2D)  # (N, 2, 2)
         
-        # compute exponent part: -0.5 * (x-μ)^T * Σ^(-1) * (x-μ)
-        # dx: (N, H, W, 2), inv_covs: (N, 2, 2)
+        # 检查是否有接近零或负的行列式
+        if (dets <= 0).any():
+            print("Warning: Non-positive determinants detected!")
+            print("Determinant range:", dets.min().item(), dets.max().item())
+        
+        inv_covs = torch.inverse(covs2D)
+        
+        # compute exponent part： -0.5 * (x-μ)^T * Σ^(-1) * (x-μ)
         exp_term = -0.5 * torch.sum(
             dx.unsqueeze(-2) @ inv_covs.unsqueeze(1).unsqueeze(1) @ dx.unsqueeze(-1),
             dim=(-2, -1)
         ).squeeze(-1)  # (N, H, W)
         
+        # 检查指数项
+        print("Exponent term:", 
+              "min:", exp_term.min().item(),
+              "max:", exp_term.max().item(),
+              "has_nan:", torch.isnan(exp_term).any().item())
+        
         # compute normalization coefficient: 1/(2π*sqrt(|Σ|))
         norm_factor = 1.0 / (2.0 * np.pi * torch.sqrt(dets))  # (N,)
-        
+
         # compute the gaussian values
         gaussian = norm_factor.view(N, 1, 1) * torch.exp(exp_term)  # (N, H, W)
         

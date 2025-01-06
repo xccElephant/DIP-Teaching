@@ -73,3 +73,80 @@ python train.py --colmap_dir data/chair --checkpoint_dir data/chair/checkpoints
 ### Compare with the original 3DGS Implementation
 Since we use a pure PyTorch implementation, the training speed and GPU memory usage are far from satisfactory. Also, we do not implement some crucial parts like adaptive Gaussian densification scheme. Run the [original 3DGS implementation](https://github.com/graphdeco-inria/gaussian-splatting) with the same dataset to compare the results.
 
+---
+
+## Implementation
+
+This repository is Chucheng Xiang's implementation of Assignment_04 of DIP. My student ID is SA24001058.
+
+### Environment
+
+- OS: Linux (Ubuntu 22.04)
+- Python: 3.10
+- CUDA: 12.4
+
+### Installation
+
+Following the cloning of the repository, you can install the necessary dependencies by executing the commands below:
+
+1. To create virtual environment and activate it:
+
+```bash
+conda create -n dip python=3.10
+conda activate dip
+```
+
+2. To install requirements:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. To check the CUDA version:
+
+```bash
+nvcc --version
+```
+
+4. To install PyTorch (CUDA 12.4):
+
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
+
+However, the download speed of PyTorch from the official website might be very slow, so I recommend manually download the PyTorch package (https://download.pytorch.org/whl/cu124/torch-2.5.0%2Bcu124-cp310-cp310-win_amd64.whl) and install it directly.
+
+5. To install COLMAP, run:
+
+```bash
+sudo apt update
+sudo apt install colmap
+```
+
+### Usage
+
+After downloading the datasets, you can run the following command to train the model:
+
+```bash
+cd Assignments/04_3DGS
+python train.py --colmap_dir data/chair --checkpoint_dir data/chair/checkpoints
+```
+
+Then you can see the training process in the terminal, while the checkpoints, logs and generated images will be saved in the `checkpoints`, `logs` and `train(val)_results` folders.
+
+### Results
+
+Here are some generated images:
+
+![Generated Image 1](./display/pix2pix_1.png)
+![Generated Image 2](./display/pix2pix_2.png)
+![Generated Image 3](./display/pix2pix_3.png)
+![Generated Image 4](./display/pix2pix_4.png)
+
+
+### Compare with the original 3DGS Implementation
+
+For convenience, I follow author's instructions to use a [colab notebook](https://colab.research.google.com/github/camenduru/gaussian-splatting-colab/blob/main/gaussian_splatting_colab.ipynb) provided by a user [camenduru](https://github.com/camenduru) to run the original 3DGS implementation on the 'chair' dataset. The results are shown below:
+
+![Original 3DGS Implementation](./display/original_3dgs.png)
+
