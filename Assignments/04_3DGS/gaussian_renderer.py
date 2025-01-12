@@ -34,11 +34,11 @@ class GaussianRenderer(nn.Module):
         N = means3D.shape[0]
         
         # 添加调试信息
-        print("3D means:", 
-              "shape:", means3D.shape,
-              "min:", means3D.min().item(),
-              "max:", means3D.max().item(),
-              "has_nan:", torch.isnan(means3D).any().item())
+        # print("3D means:", 
+        #       "shape:", means3D.shape,
+        #       "min:", means3D.min().item(),
+        #       "max:", means3D.max().item(),
+        #       "has_nan:", torch.isnan(means3D).any().item())
         
         # 1. Transform points to camera space
         cam_points = means3D @ R.T + t.unsqueeze(0)  # (N, 3)
@@ -50,11 +50,11 @@ class GaussianRenderer(nn.Module):
         screen_points = cam_points @ K.T
         means2D = screen_points[..., :2] / screen_points[..., 2:3]
         
-        print("2D means:", 
-              "shape:", means2D.shape,
-              "min:", means2D.min().item(),
-              "max:", means2D.max().item(),
-              "has_nan:", torch.isnan(means2D).any().item())
+        # print("2D means:", 
+        #       "shape:", means2D.shape,
+        #       "min:", means2D.min().item(),
+        #       "max:", means2D.max().item(),
+        #       "has_nan:", torch.isnan(means2D).any().item())
         
         # 4. Transform covariance to camera space and then to 2D
         # Compute Jacobian of perspective projection
@@ -93,11 +93,11 @@ class GaussianRenderer(nn.Module):
         H, W = pixels.shape[:2]
         
         # 添加调试信息
-        print("2D means input:", 
-              "shape:", means2D.shape,
-              "min:", means2D.min().item(),
-              "max:", means2D.max().item(),
-              "has_nan:", torch.isnan(means2D).any().item())
+        # print("2D means input:", 
+        #       "shape:", means2D.shape,
+        #       "min:", means2D.min().item(),
+        #       "max:", means2D.max().item(),
+        #       "has_nan:", torch.isnan(means2D).any().item())
         
         # Compute offset from mean （）
         dx = pixels.unsqueeze(0) - means2D.reshape(N, 1, 1, 2)
@@ -107,20 +107,20 @@ class GaussianRenderer(nn.Module):
         covs2D = covs2D + eps * torch.eye(2, device=covs2D.device).unsqueeze(0)
         
         # 检查协方差矩阵的条件
-        print("2D covariance:", 
-              "shape:", covs2D.shape,
-              "min:", covs2D.min().item(),
-              "max:", covs2D.max().item(),
-              "has_nan:", torch.isnan(covs2D).any().item(),
-              "determinant min:", torch.det(covs2D).min().item())
+        # print("2D covariance:", 
+        #       "shape:", covs2D.shape,
+        #       "min:", covs2D.min().item(),
+        #       "max:", covs2D.max().item(),
+        #       "has_nan:", torch.isnan(covs2D).any().item(),
+        #       "determinant min:", torch.det(covs2D).min().item())
 
         # Compute determinant for normalization
         dets = torch.det(covs2D)  # (N,)
         
         # 检查是否有接近零或负的行列式
-        if (dets <= 0).any():
-            print("Warning: Non-positive determinants detected!")
-            print("Determinant range:", dets.min().item(), dets.max().item())
+        # if (dets <= 0).any():
+        #     print("Warning: Non-positive determinants detected!")
+        #     print("Determinant range:", dets.min().item(), dets.max().item())
         
         inv_covs = torch.inverse(covs2D)
         

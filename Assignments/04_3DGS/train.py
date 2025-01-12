@@ -55,6 +55,14 @@ class GaussianTrainer:
         
         # Keep track of debug indices
         self.debug_indices = None
+        
+        # 添加 loss 记录文件路径
+        self.loss_file = Path(config.log_dir).parent / "training_loss.csv"
+        
+        # 如果文件不存在, 创建并写入表头
+        if not self.loss_file.exists():
+            with open(self.loss_file, 'w') as f:
+                f.write("epoch,loss\n")
 
     def save_debug_images(self, epoch: int, rendered_images: torch.Tensor, 
                          gt_images: torch.Tensor, image_paths: list):
@@ -231,6 +239,10 @@ class GaussianTrainer:
                 # Update progress bar
                 avg_loss = epoch_loss / num_batches
                 pbar.set_postfix({'loss': f"{avg_loss:.4f}"})
+            
+            # 记录每个epoch的平均loss
+            with open(self.loss_file, 'a') as f:
+                f.write(f"{epoch},{avg_loss:.6f}\n")
             
             # Save checkpoint
             if epoch % self.config.save_every == 0:
