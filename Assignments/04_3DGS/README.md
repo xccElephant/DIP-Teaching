@@ -132,6 +132,13 @@ sudo apt update
 sudo apt install colmap
 ```
 
+6. To install pytorch3d, run:
+
+```bash
+conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+conda install pytorch3d
+```
+
 ### Usage
 
 First, use Colmap to recover camera poses and a set of 3D points.
@@ -149,15 +156,53 @@ python train.py --colmap_dir data/chair --checkpoint_dir data/chair/checkpoints
 
 ### Results
 
-Here are some rendered images in different views:
+For dataset "chair", here are some rendered images in different epochs:
 
 <table>
 <tr>
-<td><img src="./assets/p_1.png"/></td>
-<td><img src="./assets/p_2.png"/></td>
-<td><img src="./assets/p_3.png"/></td>
+<td><img src="./assets/chair_epoch_1.png"/></td>
+<td><img src="./assets/chair_epoch_10.png"/></td>
+<td><img src="./assets/chair_epoch_50.png"/></td>
+<td><img src="./assets/chair_epoch_200.png"/></td>
+</tr>
+<tr>
+<td align="center">Epoch 1</td>
+<td align="center">Epoch 10</td>
+<td align="center">Epoch 50</td>
+<td align="center">Epoch 200</td>
 </tr>
 </table>
+
+At the beginning of the training, the results of the rendering are still very vague, and there is a large gap with the original image, but there are already some structural similarities. With the increase of the epoch, the results gradually approach the original image. The training loss curve is shown below:
+
+![training loss curve](./assets/chair_training_loss.png)
+
+Additionally, here is a gif showing the rendering results in different views:
+
+![rendering results in different views](./assets/debug_rendering_chair.gif)
+
+For dataset "lego", here are some rendered images in different epochs:
+
+<table>
+<tr>
+<td><img src="./assets/lego_epoch_1.png"/></td>
+<td><img src="./assets/lego_epoch_10.png"/></td>
+<td><img src="./assets/lego_epoch_50.png"/></td>
+<td><img src="./assets/lego_epoch_200.png"/></td>
+</tr>
+<tr>
+<td align="center">Epoch 1</td>
+<td align="center">Epoch 10</td>
+<td align="center">Epoch 50</td>
+<td align="center">Epoch 200</td>
+</tr>
+</table>
+
+The training loss curve:
+![training loss curve](./assets/lego_training_loss.png)
+
+The rendering results in different views:
+![rendering results in different views](./assets/debug_rendering_lego.gif)
 
 ### Compare with the original 3DGS Implementation
 
